@@ -56,4 +56,4 @@ app.get('/:id/song.mp3', async (req,res) =>{
     }
 });
 
-app.listen(8080);
+app.listen(process.env.PORT || 5000);
