@@ -39,6 +39,7 @@ async function getFile(id) {
 }
 
 app.get('/:id/maps', async (req,res) => {
+    res.set('Content-Type', 'application/json');
     res.send(JSON.stringify(getMaps(await getFile(req.params.id))));
 });
 
@@ -48,6 +49,7 @@ app.get('/:id/song.mp3', async (req,res) =>{
 
     if (maps[0] !== undefined) {
         let zip = AdmZip(file.body);
+        res.set('Content-Type','audio/mpeg');
         res.send(zip.getEntry(maps[0].AudioFilename).getData());
     } else {
         res.code(404);
