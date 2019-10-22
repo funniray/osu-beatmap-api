@@ -14,8 +14,7 @@ function getMaps(file) {
     for (const entry of zipEntries) {
         if(entry.entryName.endsWith('.osu')) {
             const map = parser.parseContent(entry.getData());
-            if (map.Mode == 3)
-                maps.push(map);
+            maps.push(map);
         }
     }
     return maps;
