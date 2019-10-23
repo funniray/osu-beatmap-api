@@ -62,6 +62,7 @@ app.get('/:id/song.mp3', async (req,res) =>{
 app.get('/:id/sounds/:file', async (req,res)=> {
     const file = await getFile(req.params.id);
     const fuuid = uuid();
+    const volume = res.query.vol || 1;
     let zip = AdmZip(file.body);
     try {
         zip.extractEntryTo(req.params.file.replace(".mp3", ".wav"), "./tmp/" + fuuid, false, true);
@@ -70,6 +71,7 @@ app.get('/:id/sounds/:file', async (req,res)=> {
             .on('stderr', function (stderrLine) {
                 console.log('Stderr output: ' + stderrLine);
             })
+            .audioFilters('volume='+volume)
             .format("mp3")
             .pipe(res, {end: true});
     } catch (err) {
