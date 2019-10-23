@@ -75,7 +75,7 @@ app.get('/:id/song.mp3', async (req,res) =>{
     }
 });
 
-function tryFile(fileName, zip, res, vol) {
+function tryFile(fileName, zip, res, vol, id) {
     let volume = vol || "1";
     let file = fileName;
     if (zip) {
@@ -103,11 +103,11 @@ app.get('/:id/sounds/:file', async (req,res)=> {
         volume = Number(split[1].split(".")[0])/100;
     }
     try {
-        await tryFile(fileName,zip,res,volume);
+        await tryFile(fileName,zip,res,volume, req.params.id);
     } catch (err) {
         try {
             fileName = fileName.replace(/\d+/g,'');
-            await tryFile(fileName,zip,res,volume);
+            await tryFile(fileName,zip,res,volume, req.params.id);
         } catch (err) {
             await tryFile(__dirname+"/defaultsounds/"+fileName.replace('.wav','.mp3'),false,res,volume);
         }
