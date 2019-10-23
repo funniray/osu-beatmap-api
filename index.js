@@ -47,7 +47,7 @@ async function getFile(id) {
             console.log(file.statusCode);
             return;
         }
-        fs.mkdirSync(diskloc);
+        fs.mkdirSync(diskloc,{recursive: true});
         fs.writeFileSync(diskloc+"/map.zip",file.body);
         console.log("Finished downloading map: " + id);
         mapsDownloading.delete(id);
