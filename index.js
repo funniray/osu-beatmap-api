@@ -67,7 +67,7 @@ app.get('/:id/song.mp3', async (req,res) =>{
     }
 });
 
-function tryFile(fileName, zip) {
+function tryFile(fileName, zip, res) {
     const fuuid = uuid();
     zip.extractEntryTo(fileName, "./tmp/" + fuuid, false, true);
     res.set('Content-Type', 'audio/mpeg');
@@ -75,7 +75,6 @@ function tryFile(fileName, zip) {
         .on('stderr', function (stderrLine) {
             console.log('Stderr output: ' + stderrLine);
         })
-        .audioFilters('volume='+volume)
         .format("mp3")
         .pipe(res, {end: true});
 }
@@ -85,11 +84,11 @@ app.get('/:id/sounds/:file', async (req,res)=> {
     let zip = AdmZip(file.body);
     let fileName = req.params.file.replace(".mp3", ".wav");
     try {
-        tryFile(fileName,zip);
+        await tryFile(fileName,zip,res);
     } catch (err) {
         try {
             fileName = fileName.replace(/\d+/g,'');
-            tryFile(fileName);
+            await tryFile(fileName,zip,res);
         } catch (err) {
             res.sendFile(__dirname+"/defaultsounds/"+fileName.replace('.wav','.mp3'));
         }
