@@ -2,6 +2,9 @@ const parser = require('osu-parser');
 const AdmZip = require('adm-zip');
 const p = require('phin');
 const express = require('express');
+const ffmpeg = require('fluent-ffmpeg');
+const Readable = require('stream').Readable;
+const uuid = require('uuid/v4');
 
 let app = express();
 let mapCache = {};
@@ -55,6 +58,20 @@ app.get('/:id/song.mp3', async (req,res) =>{
         res.code(404);
         res.send("Map not found");
     }
+});
+
+app.get('/:id/sounds/:file', async (req,res)=> {
+    const file = await getFile(req.params.id);
+    const fuuid = uuid();
+    let zip = AdmZip(file.body);
+    zip.extractEntryTo(req.params.file.replace(".mp3",".wav"),"./tmp/"+fuuid,false,true);
+    res.set('Content-Type','audio/mpeg');
+    ffmpeg("./tmp/"+fuuid+"/"+req.params.file.replace(".mp3",".wav"))
+        .on('stderr', function(stderrLine) {
+            console.log('Stderr output: ' + stderrLine);
+        })
+        .format("mp3")
+        .pipe(res, {end: true});
 });
 
 app.listen(process.env.PORT || 5000);
