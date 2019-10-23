@@ -4,9 +4,11 @@ const p = require('phin');
 const express = require('express');
 const ffmpeg = require('fluent-ffmpeg');
 const uuid = require('uuid/v4');
+const sleep = ms => new Promise(res => setTimeout(res, ms))
 
 let app = express();
 let mapCache = {};
+let mapsDownloading = new Set();
 
 function getMaps(file) {
     let zip = AdmZip(file.body);
@@ -24,17 +26,23 @@ function getMaps(file) {
 
 async function getFile(id) {
     let file;
+    if (mapsDownloading.has(id)) {
+        await sleep(10*1000);
+        return getFile(id);
+    }
     if (mapCache[id] !== undefined) {
         file = mapCache[id];
     } else {
         console.log("Downloading map: " + id);
+        mapsDownloading.add(id);
         file = await p({url: 'https://bloodcat.com/osu/s/' + id});
         console.log("Finished downloading map: " + id);
+        mapCache[id] = file;
+        mapsDownloading.delete(id);
         if (file.statusCode !== 200) {
             console.log(file.statusCode);
             return;
         }
-        mapCache[id] = file;
     }
 
     return file;
