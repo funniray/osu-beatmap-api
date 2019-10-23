@@ -67,23 +67,32 @@ app.get('/:id/song.mp3', async (req,res) =>{
     }
 });
 
+function tryFile(fileName, zip) {
+    const fuuid = uuid();
+    zip.extractEntryTo(fileName, "./tmp/" + fuuid, false, true);
+    res.set('Content-Type', 'audio/mpeg');
+    ffmpeg("./tmp/" + fuuid + "/" + fileName)
+        .on('stderr', function (stderrLine) {
+            console.log('Stderr output: ' + stderrLine);
+        })
+        .audioFilters('volume='+volume)
+        .format("mp3")
+        .pipe(res, {end: true});
+}
+
 app.get('/:id/sounds/:file', async (req,res)=> {
     const file = await getFile(req.params.id);
-    const fuuid = uuid();
-    const volume = req.query.vol || 1;
     let zip = AdmZip(file.body);
+    let fileName = req.params.file.replace(".mp3", ".wav");
     try {
-        zip.extractEntryTo(req.params.file.replace(".mp3", ".wav"), "./tmp/" + fuuid, false, true);
-        res.set('Content-Type', 'audio/mpeg');
-        ffmpeg("./tmp/" + fuuid + "/" + req.params.file.replace(".mp3", ".wav"))
-            .on('stderr', function (stderrLine) {
-                console.log('Stderr output: ' + stderrLine);
-            })
-            .audioFilters('volume='+volume)
-            .format("mp3")
-            .pipe(res, {end: true});
+        tryFile(fileName,zip);
     } catch (err) {
-        res.sendFile(__dirname+"/defaultsounds/"+req.params.file);
+        try {
+            fileName = fileName.replace(/\d+/g,'');
+            tryFile(fileName);
+        } catch (err) {
+            res.sendFile(__dirname+"/defaultsounds/"+fileName.replace('.wav','.mp3'));
+        }
     }
 });
 
