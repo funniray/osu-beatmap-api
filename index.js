@@ -3,15 +3,21 @@ const AdmZip = require('adm-zip');
 const p = require('phin');
 const express = require('express');
 const ffmpeg = require('fluent-ffmpeg');
-const uuid = require('uuid/v4');
-const sleep = ms => new Promise(res => setTimeout(res, ms))
+const fs = require('fs');
+const sleep = ms => new Promise(res => setTimeout(res, ms));
+const openFile = (path,flags) => new Promise((res,rej) =>{
+    fs.access(path,flags,(err,fd) =>{
+        if (err)
+            rej(err);
+        res(fd);
+    });
+});
 
 let app = express();
-let mapCache = {};
 let mapsDownloading = new Set();
 
 function getMaps(file) {
-    let zip = AdmZip(file.body);
+    let zip = AdmZip(file);
     const zipEntries = zip.getEntries();
 
     let maps = [];
@@ -26,26 +32,28 @@ function getMaps(file) {
 
 async function getFile(id) {
     let file;
+    let diskloc =__dirname+'/tmp/'+id;
     if (mapsDownloading.has(id)) {
-        await sleep(10*1000);
+        await sleep(5*1000);
         return getFile(id);
     }
-    if (mapCache[id] !== undefined) {
-        file = mapCache[id];
-    } else {
+    try {
+        await openFile(diskloc,fs.constants.F_OK);
+    } catch (err) {
         console.log("Downloading map: " + id);
         mapsDownloading.add(id);
-        file = await p({url: 'https://bloodcat.com/osu/s/' + id});
-        console.log("Finished downloading map: " + id);
-        mapCache[id] = file;
-        mapsDownloading.delete(id);
+        file = await p({url: 'https://beatconnect.io/b/' + id,followRedirects:true});
         if (file.statusCode !== 200) {
             console.log(file.statusCode);
             return;
         }
+        fs.mkdirSync(diskloc);
+        fs.writeFileSync(diskloc+"/map.zip",file.body);
+        console.log("Finished downloading map: " + id);
+        mapsDownloading.delete(id);
     }
 
-    return file;
+    return diskloc+"/map.zip";
 }
 
 app.get('/:id/maps', async (req,res) => {
@@ -58,7 +66,7 @@ app.get('/:id/song.mp3', async (req,res) =>{
     const maps = getMaps(file);
 
     if (maps[0] !== undefined) {
-        let zip = AdmZip(file.body);
+        let zip = AdmZip(file);
         res.set('Content-Type','audio/mpeg');
         res.send(zip.getEntry(maps[0].AudioFilename).getData());
     } else {
@@ -67,30 +75,41 @@ app.get('/:id/song.mp3', async (req,res) =>{
     }
 });
 
-function tryFile(fileName, zip, res) {
-    const fuuid = uuid();
-    zip.extractEntryTo(fileName, "./tmp/" + fuuid, false, true);
+function tryFile(fileName, zip, res, vol) {
+    let volume = vol || "1";
+    let file = fileName;
+    if (zip) {
+        zip.extractEntryTo(fileName, "./tmp/" + id, false, true);
+        file = "./tmp/" + id + "/" + fileName;
+    }
     res.set('Content-Type', 'audio/mpeg');
-    ffmpeg("./tmp/" + fuuid + "/" + fileName)
+    ffmpeg(file)
         .on('stderr', function (stderrLine) {
             console.log('Stderr output: ' + stderrLine);
         })
+        .audioFilter('volume='+volume)
         .format("mp3")
         .pipe(res, {end: true});
 }
 
 app.get('/:id/sounds/:file', async (req,res)=> {
     const file = await getFile(req.params.id);
-    let zip = AdmZip(file.body);
+    let zip = AdmZip(file);
     let fileName = req.params.file.replace(".mp3", ".wav");
+    let volume = 1;
+    if (fileName.includes("$")) {
+        let split = fileName.split("$");
+        fileName = split[0]+'.wav';
+        volume = Number(split[1].split(".")[0])/100;
+    }
     try {
-        await tryFile(fileName,zip,res);
+        await tryFile(fileName,zip,res,volume);
     } catch (err) {
         try {
             fileName = fileName.replace(/\d+/g,'');
-            await tryFile(fileName,zip,res);
+            await tryFile(fileName,zip,res,volume);
         } catch (err) {
-            res.sendFile(__dirname+"/defaultsounds/"+fileName.replace('.wav','.mp3'));
+            await tryFile(__dirname+"/defaultsounds/"+fileName.replace('.wav','.mp3'),false,res,volume);
         }
     }
 });
