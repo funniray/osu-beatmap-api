@@ -4,6 +4,7 @@ const p = require('phin');
 const express = require('express');
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
+const cors = require('cors');
 const sleep = ms => new Promise(res => setTimeout(res, ms));
 const openFile = (path,flags) => new Promise((res,rej) =>{
     fs.access(path,flags,(err,fd) =>{
@@ -55,6 +56,8 @@ async function getFile(id) {
 
     return diskloc+"/map.zip";
 }
+
+app.use(cors());
 
 app.get('/:id/maps', async (req,res) => {
     res.set('Content-Type', 'application/json');
