@@ -43,7 +43,7 @@ async function getFile(id) {
     } catch (err) {
         console.log("Downloading map: " + id);
         mapsDownloading.add(id);
-        file = await p({url: 'https://beatconnect.io/b/' + id,followRedirects:true});
+        file = await p({url: 'https://bloodcat.com/b/' + id,followRedirects:true});
         if (file.statusCode !== 200) {
             console.log(file.statusCode);
             return;
