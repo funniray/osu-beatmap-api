@@ -1,10 +1,11 @@
-const parser = require('osu-parser');
+const parser = require('@funniray/osu-parser');
 const AdmZip = require('adm-zip');
-const p = require('phin');
+const Axios = require('axios')  
 const express = require('express');
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const cors = require('cors');
+const path = require('path');
 const sleep = ms => new Promise(res => setTimeout(res, ms));
 const openFile = (path,flags) => new Promise((res,rej) =>{
     fs.access(path,flags,(err,fd) =>{
@@ -15,7 +16,7 @@ const openFile = (path,flags) => new Promise((res,rej) =>{
 });
 
 let app = express();
-let mapsDownloading = new Set();
+let mapsDownloading = [];
 
 function getMaps(file) {
     let zip = AdmZip(file);
@@ -31,10 +32,17 @@ function getMaps(file) {
     return maps;
 }
 
+function getProgress(id) {
+    let progress = mapsDownloading.find(id1=>id1.id===id);
+    if (!progress) return {progress:1}
+
+    return {progress:progress.downloaded/progress.len};
+}
+
 async function getFile(id) {
     let file;
-    let diskloc =__dirname+'/tmp/'+id;
-    if (mapsDownloading.has(id)) {
+    let diskloc = path.resolve(__dirname,'tmp',id);
+    if (mapsDownloading.find(id1=>id1.id===id)) {
         await sleep(5*1000);
         return getFile(id);
     }
@@ -42,16 +50,30 @@ async function getFile(id) {
         await openFile(diskloc,fs.constants.F_OK);
     } catch (err) {
         console.log("Downloading map: " + id);
-        mapsDownloading.add(id);
-        file = await p({url: 'https://bloodcat.com/osu/s/' + id,followRedirects:true});
-        if (file.statusCode !== 200) {
-            console.log(file.statusCode);
-            return;
-        }
+        let progress = {id: id, downloaded: 0, len: 100};
+        mapsDownloading.push(progress);
+
         fs.mkdirSync(diskloc,{recursive: true});
-        fs.writeFileSync(diskloc+"/map.zip",file.body);
-        console.log("Finished downloading map: " + id);
-        mapsDownloading.delete(id);
+        const writer = fs.createWriteStream(path.resolve(__dirname,'tmp',id,"map.zip"));
+
+        const { data, headers } = await Axios({
+            url: `https://bloodcat.com/osu/s/${id}`,
+            method: 'GET',
+            responseType: 'stream'
+        })
+
+        progress.len = headers['content-length'];
+        data.pipe(writer);
+        data.on('data', (chunk) => progress.downloaded+=chunk.length);
+
+        return await new Promise((resolve, reject) => {
+            writer.on('finish', ()=>{
+                console.log("Finished downloading map: " + id);
+                mapsDownloading = mapsDownloading.filter(i=>i!=progress);
+                resolve();
+            })
+            writer.on('error', reject)
+        })
     }
 
     return diskloc+"/map.zip";
@@ -61,7 +83,14 @@ app.use(cors());
 
 app.get('/:id/maps', async (req,res) => {
     res.set('Content-Type', 'application/json');
-    res.send(JSON.stringify(getMaps(await getFile(req.params.id))));
+    sleep(1000).then(()=>{
+        try {res.send(JSON.stringify(getProgress(req.params.id)))} catch(e){}
+    });
+    try {
+        res.send(JSON.stringify(getMaps(await getFile(req.params.id))));
+    } catch (e) {
+        //Lol do nothing
+    }
 });
 
 app.get('/:id/song.mp3', async (req,res) =>{
