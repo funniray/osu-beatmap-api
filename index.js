@@ -83,7 +83,7 @@ app.use(cors());
 
 app.get('/:id/maps', async (req,res) => {
     res.set('Content-Type', 'application/json');
-    sleep(1000).then(()=>{
+    sleep(100).then(()=>{
         try {res.send(JSON.stringify(getProgress(req.params.id)))} catch(e){}
     });
     try {
