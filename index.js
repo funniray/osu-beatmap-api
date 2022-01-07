@@ -57,7 +57,7 @@ async function getFile(id) {
         const writer = fs.createWriteStream(path.resolve(__dirname,'tmp',id,"map.zip"));
 
         const { data, headers } = await Axios({
-            url: `https://bloodcat.com/osu/s/${id}`,
+            url: `https://api.chimu.moe/v1/download/${id}?n=1`,
             method: 'GET',
             responseType: 'stream'
         })
