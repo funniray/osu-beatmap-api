@@ -102,7 +102,7 @@ app.get('/:id/song.mp3', async (req,res) =>{
         res.set('Content-Type','audio/mpeg');
         res.send(zip.getEntry(maps[0].AudioFilename).getData());
     } else {
-        res.code(404);
+        res.statusCode(404);
         res.send("Map not found");
     }
 });
